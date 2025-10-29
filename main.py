@@ -19,11 +19,11 @@ sd.default.device = 1  # ← нужно ввести свой номер мик�
 def text_to_sql(text):
     text = text.lower()
 
-    if "показать" in text and "пользователей" in text:
+    if "показать" in text and "пользовател" in text:
         return "SELECT * FROM users;"
-    elif "удалить" in text and "пользователя" in text:
+    elif "удалить" in text and "пользовател" in text:
         return "DELETE FROM users;"
-    elif "добавить" in text and "пользователя" in text:
+    elif "добавить" in text and "пользовател" in text:
         parts = text.split()
 
         if len(parts) >= 3:
