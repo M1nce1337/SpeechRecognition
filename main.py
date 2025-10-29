@@ -1,15 +1,12 @@
-import sounddevice as sd
-import queue
-import json
-import datetime
-import os
-import pandas as pd
 from vosk import Model, KaldiRecognizer
 
-# === НАСТРОЙКИ ===
+import sounddevice as sd
+import queue
+import sqlite3
+import json
+
 MODEL_PATH = "vosk-model-small-ru-0.22"  # Путь к модели
-TXT_FILE = "transcript.txt"
-XLSX_FILE = "transcript.xlsx"
+DB_PATH = "database.db"
 SAMPLE_RATE = 16000
 
 # === ИНИЦИАЛИЗАЦИЯ ===
@@ -17,41 +14,74 @@ model = Model(MODEL_PATH)
 recognizer = KaldiRecognizer(model, SAMPLE_RATE)
 audio_queue = queue.Queue()
 
-sd.default.device = 1  # ← Поставь свой номер микрофона
+sd.default.device = 1  # ← нужно ввести свой номер микрофона
 
-# === ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ EXCEL ===
-def append_to_excel(text):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    new_row = {"Время": timestamp, "Текст": text}
+def text_to_sql(text):
+    text = text.lower()
 
-    if os.path.exists(XLSX_FILE):
-        df = pd.read_excel(XLSX_FILE)
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    else:
-        df = pd.DataFrame([new_row])
+    if "показать" in text and "пользователей" in text:
+        return "SELECT * FROM users;"
+    elif "удалить" in text and "пользователя" in text:
+        return "DELETE FROM users;"
+    elif "добавить" in text and "пользователя" in text:
+        parts = text.split()
 
-    df.to_excel(XLSX_FILE, index=False)
+        if len(parts) >= 3:
+            name = parts[-1]
+            return f"INSERT INTO users (name) VALUES ('{name}');"
+        
+    return None
 
-# === ОБРАБОТКА ПОТОКА ===
+conn = sqlite3.connect(DB_PATH)
+cur = conn.cursor()
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT
+);
+""")
+conn.commit()
+
 def callback(indata, frames, time, status):
     audio_queue.put(bytes(indata))
 
-print("🎙 Система готова. Говори в микрофон (Ctrl+C — выход).")
+print("🎙 Говори SQL-команды. (Ctrl+C — выход)")
 
-with open(TXT_FILE, "a", encoding="utf-8") as f:
-    with sd.RawInputStream(samplerate=SAMPLE_RATE, blocksize=8000, dtype='int16',
-                           channels=1, callback=callback):
-        try:
-            while True:
-                data = audio_queue.get()
-                if recognizer.AcceptWaveform(data):
-                    result = json.loads(recognizer.Result())
-                    text = result.get("text", "")
-                    if text:
-                        print("🗣", text)
-                        f.write(text + "\n")
-                        f.flush()
-                        append_to_excel(text)
-        except KeyboardInterrupt:
-            print("\n✅ Распознавание завершено.")
+with sd.RawInputStream(samplerate=SAMPLE_RATE, blocksize=8000, dtype='int16',
+                       channels=1, callback=callback):
+    try:
+        while True:
+            data = audio_queue.get()
 
+            if recognizer.AcceptWaveform(data):
+                result = json.loads(recognizer.Result())
+                text = result.get("text", "")
+
+                if text:
+                    print("🗣", text)
+                    sql = text_to_sql(text)
+
+                    if sql:
+                        print(f"💾 SQL → {sql}")
+                        
+                        try:
+                            cur.execute(sql)
+                            conn.commit()
+                            rows = cur.fetchall() if sql.strip().lower().startswith("select") else None
+
+                            if rows:
+                                for r in rows:
+                                    print("📄", r)
+                            else:
+                                print("✅ Запрос выполнен.")
+
+                        except Exception as e:
+                            print("❌ Ошибка SQL:", e)
+
+                    else:
+                        print("🤔 Не удалось понять команду.")
+                        
+    except KeyboardInterrupt:
+        print("\n✅ Работа завершена.")
+        conn.close()
