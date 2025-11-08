@@ -1,20 +1,19 @@
 from vosk import Model, KaldiRecognizer
-
 import sounddevice as sd
 import queue
 import sqlite3
 import json
 
-MODEL_PATH = "vosk-model-small-ru-0.22"  # Путь к модели
+MODEL_PATH = "vosk-model-small-ru-0.22"  
 DB_PATH = "database.db"
 SAMPLE_RATE = 16000
 
-# === ИНИЦИАЛИЗАЦИЯ ===
+
 model = Model(MODEL_PATH)
 recognizer = KaldiRecognizer(model, SAMPLE_RATE)
 audio_queue = queue.Queue()
 
-sd.default.device = 1  # ← нужно ввести свой номер микрофона
+sd.default.device = 1  
 
 def text_to_sql(text):
     text = text.lower()
