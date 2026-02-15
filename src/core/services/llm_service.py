@@ -1,4 +1,4 @@
-import requests
+from aiohttp import ClientSession
 
 class LLMService:
     
@@ -12,20 +12,27 @@ class LLMService:
     _max_tokens = -1
 
     # Метод класса для отправки промпта и получения ответа
-    @classmethod
-    def send_message(cls, message: str) -> dict:
+    
+    async def send_message(self, session: ClientSession, message: str) -> dict:
         headers = {'Content-Type': 'application/json'}
         data = {
-            "model": cls._model,
+            "model": self._model,
             "messages": [
-                {"role": "system", "content": cls._SYSTEM_PROMPT},
+                {"role": "system", "content": self._SYSTEM_PROMPT},
                 {"role": "user", "content": message}                               
             ],
-            "temperature": cls._temperature,
-            "max_tokens": cls._max_tokens,
+            "temperature": self._temperature,
+            "max_tokens": self._max_tokens,
             "stream": False
         }
-        response = requests.post(cls._api_url, json=data, headers=headers)
-        raw = response.json()
 
-        return raw['choices'][0]['message']['content']
+        async with session.post(
+            self._api_url, 
+            json=data, 
+            headers=headers) as result:
+
+            raw = await result.json()
+
+            return raw['choices'][0]['message']['content']
+
+llm_service = LLMService()        

@@ -4,7 +4,8 @@ from vosk import Model, KaldiRecognizer
 from websocket_connection.connection_manager import manager
 from core.models.db_helper import db_helper
 from core.services.asr_service import ASRService
-from core.services.llm_service import LLMService
+from core.services.llm_service import llm_service
+import aiohttp
 import base64
 import json
 
@@ -79,5 +80,7 @@ async def websocket_endpoint(
 
 
 @router.post("/llm/structure")
-def llm_process():
-    return LLMService.send_message(text)      
+async def llm_process():
+    async with aiohttp.ClientSession() as session:
+        result = await llm_service.send_message(session, text)
+        return result  
