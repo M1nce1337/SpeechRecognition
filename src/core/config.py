@@ -1,6 +1,12 @@
 from pydantic import BaseModel, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import ClassVar
 
+class SystemPromptConfig(BaseModel):
+    content: str
+
+class LLMConfig(BaseModel):
+    url: str
 
 class DataBaseConfig(BaseModel):
     url: PostgresDsn
@@ -16,7 +22,9 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         env_prefix="APP_CONFIG__",
     )
-
+    
     db: DataBaseConfig
+    llm: LLMConfig
+    prompt: SystemPromptConfig
 
 settings = Settings()

@@ -1,17 +1,18 @@
 from aiohttp import ClientSession
+from dotenv import load_dotenv
+from core.config import settings
+import os
 
 class LLMService:
-    
+
     # Параметры запроса к LLM
-    _SYSTEM_PROMPT: str = "Ты - медицинский ассистент. На основе диалога врача и пациента сформируй JSON с полями: " \
-                                 "complaints, anamnesis, status_praesens, recommendations"
-    
-    _api_url: str = "http://127.0.0.1:1234/v1/chat/completions"
-    _model: str = "qwen3-vl-30b"
+    _SYSTEM_PROMPT = settings.prompt.content
+    _api_url = settings.llm.url
+    _model = "qwen3-vl-30b"
     _temperature = 0.2
     _max_tokens = -1
 
-    # Метод класса для отправки промпта и получения ответа
+    # Метод для отправки промпта и получения ответа
     
     async def send_message(self, session: ClientSession, message: str) -> dict:
         headers = {'Content-Type': 'application/json'}
