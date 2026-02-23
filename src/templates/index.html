@@ -1,300 +1,159 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>VoiceDoc — WebSocket ASR Prototype</title>
-  <style>
-    body { font-family: Arial, Helvetica, sans-serif; margin: 20px; color:#0b1b2b; background:#f6f9fc; }
-    h1 { font-size: 20px; margin-bottom: 8px; }
-    .controls { margin-bottom: 12px; }
-    button { padding: 8px 12px; margin-right:8px; border-radius:6px; border:1px solid #c7d6e6; background:white; cursor:pointer;}
-    button.primary { background: #0b69ff; color: white; border-color:#0b69ff; }
-    button.danger { background:#ff5c5c; color:white; border-color:#ff5c5c;}
-    #status { display:inline-block; margin-left:8px; padding:4px 8px; border-radius:6px; background:#e6f0ff; color:#0b69ff; border:1px solid #c7d6e6;}
-    #transcript, #structured { width: 100%; min-height: 120px; padding:10px; border-radius:8px; border:1px solid #d8e6f3; background:white; box-shadow:0 1px 2px rgba(11,25,40,0.04); }
-    label { font-weight:600; display:block; margin-top:12px; margin-bottom:6px; }
-    .row { display:flex; gap:8px; align-items:center; margin-top:8px; }
-    .small { font-size:13px; color:#5a6b7b; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>VoiceDoc — Медицинская карта голосом</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
 </head>
 <body>
-  <h1>VoiceDoc — WebSocket ASR (Prototype)</h1>
+  <div class="container">
+    <div class="header">
+      <h1>🎤 VoiceDoc — Медицинская карта голосом</h1>
+      <p>Профессиональная система голосового заполнения медицинской документации</p>
+    </div>
 
-  <div class="controls">
-    <button id="btnStart" class="primary">Начать запись</button>
-    <button id="btnStop" class="danger" disabled>Остановить</button>
-    <span id="status">Ожидание</span>
+    <div class="grid">
+      <!-- Левая колонка - Запись и транскрипция -->
+      <div class="card">
+        <div class="card-header">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+            Голосовой ввод
+          </h2>
+          <span class="badge" id="connectionBadge">WebSocket</span>
+        </div>
+        <div class="card-body">
+          <div class="controls">
+            <button id="btnStart" class="btn btn-primary">
+              <svg class="icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <polygon points="10 8 16 12 10 16 10 8"/>
+              </svg>
+              Начать запись
+            </button>
+            <button id="btnStop" class="btn btn-danger" disabled>
+              <svg class="icon" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12"/>
+              </svg>
+              Остановить
+            </button>
+            <button id="btnClear" class="btn">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                <path d="M8 4V2h8v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+              Очистить
+            </button>
+          </div>
+
+          <div class="status-bar" id="statusBar">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span class="status-text" id="statusText">Готов к записи</span>
+            <span class="status-time" id="statusTime">00:00</span>
+          </div>
+
+          <div class="voice-visualization" id="visualization">
+            <div class="visualization-bars" id="visualizationBars">
+              <!-- Бары будут генерироваться JS -->
+            </div>
+          </div>
+
+          <label style="font-weight: 500; font-size: 14px; color: var(--gray-700); margin: 16px 0 8px; display: block;">
+            Транскрипция в реальном времени:
+          </label>
+          <div id="transcript" class="text-area" contenteditable="false"></div>
+
+          <div class="toolbar">
+            <button id="btnCopyTranscript" class="btn">
+              <svg class="icon" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Копировать
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Правая колонка - Структурированный результат -->
+      <div class="card">
+        <div class="card-header">
+          <h2>
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            Медицинская карта
+          </h2>
+          <span class="badge" id="llmBadge">LLM</span>
+        </div>
+        <div class="card-body">
+          <button id="btnMakeStructured" class="btn btn-success" style="width: 100%; margin-bottom: 16px;">
+            <svg class="icon" viewBox="0 0 24 24">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Сформировать структуру (LLM)
+          </button>
+
+          <label style="font-weight: 500; font-size: 14px; color: var(--gray-700); margin-bottom: 8px; display: block;">
+            Структурированный результат:
+          </label>
+          <pre id="structured" class="structured-output"></pre>
+
+          <div class="toolbar">
+            <button id="btnCopy" class="btn">
+              <svg class="icon" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Копировать в буфер
+            </button>
+            <button id="btnExport" class="btn">
+              <svg class="icon" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Экспорт
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Подсказки -->
+    <div class="tips">
+      <h3>
+        <svg class="icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="12" x2="12" y2="16"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        Советы по использованию:
+      </h3>
+      <ul>
+        <li>🎯 Говорите четко и размеренно для лучшего распознавания</li>
+        <li>📋 Используйте медицинскую терминологию - модель обучена на ней</li>
+        <li>⏱️ Максимальная длительность записи - 5 минут</li>
+        <li>🔄 После остановки можно сформировать структуру</li>
+        <li>📊 Результат можно скопировать или экспортировать в JSON</li>
+      </ul>
+    </div>
   </div>
 
-  <label>Live транскрипция (partial / final):</label>
-  <div id="transcript" contenteditable="false"></div>
-
-  <div class="row">
-    <button id="btnMakeStructured">Сформировать структуру (LLM)</button>
-    <button id="btnCopy" style="display:inline-block">Копировать</button>
-    <span class="small">→ Нажмите «Сформировать структуру» чтобы отправить текст в LLM (POST /llm/structure)</span>
-  </div>
-
-  <label>Структурированный результат (ответ LLM):</label>
-  <pre id="structured"></pre>
-
-  <script>
-
-
-const WS_URL = "ws://localhost:8000/ws/audio"; 
-const LLM_URL = "/llm/structure"; 
-
-let ws = null;
-let audioContext = null;
-let processor = null;
-let input = null;
-let globalStream = null;
-
-const btnStart = document.getElementById("btnStart");
-const btnStop = document.getElementById("btnStop");
-const statusEl = document.getElementById("status");
-const transcriptEl = document.getElementById("transcript");
-const structuredEl = document.getElementById("structured");
-const btnMakeStructured = document.getElementById("btnMakeStructured");
-const btnCopy = document.getElementById("btnCopy");
-
-btnStart.onclick = startRecording;
-btnStop.onclick = stopRecording;
-btnMakeStructured.onclick = makeStructured;
-btnCopy.onclick = copyStructured;
-
-function setStatus(s) {
-  statusEl.textContent = s;
-}
-
-
-function floatTo16BitPCM(float32Array) {
-  const l = float32Array.length;
-  const buffer = new ArrayBuffer(l * 2);
-  const view = new DataView(buffer);
-  let offset = 0;
-  for (let i = 0; i < l; i++, offset += 2) {
-    let s = Math.max(-1, Math.min(1, float32Array[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-  }
-  return buffer;
-}
-
-
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-
-function downsampleBuffer(buffer, sampleRate, outSampleRate = 16000) {
-  if (outSampleRate === sampleRate) {
-    return buffer;
-  }
-  const sampleRateRatio = sampleRate / outSampleRate;
-  const newLength = Math.round(buffer.length / sampleRateRatio);
-  const result = new Float32Array(newLength);
-  let offsetResult = 0;
-  let offsetBuffer = 0;
-  while (offsetResult < result.length) {
-    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
-    // average the range
-    let accum = 0, count = 0;
-    for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
-      accum += buffer[i];
-      count++;
-    }
-    result[offsetResult] = count ? (accum / count) : 0;
-    offsetResult++;
-    offsetBuffer = nextOffsetBuffer;
-  }
-  return result;
-}
-
-
-function initWebSocket() {
-  if (ws && ws.readyState === WebSocket.OPEN) return;
-  ws = new WebSocket(WS_URL);
-  ws.binaryType = 'arraybuffer';
-
-  ws.onopen = () => {
-    transcriptEl.innerHTML = " ";
-    setStatus("WS: подключено");
-    console.log("WS connected");
-
-    const hello = JSON.stringify({type: 'hello', role: 'client'});
-    ws.send(hello);
-  };
-  ws.onmessage = (evt) => {
-    let data = evt.data;
-    if (typeof data === 'string') {
-      try {
-        const msg = JSON.parse(data);
-        handleServerMessage(msg);
-      } catch (e) {
-        console.log("Received text:", data);
-      }
-    } else {
-      console.log("Received binary message (ignored)");
-    }
-  };
-  ws.onclose = () => {
-    setStatus("WS: отключено");
-    console.log("WS closed");
-  };
-  ws.onerror = (e) => {
-    setStatus("WS: ошибка");
-    console.error("WS error", e);
-  };
-}
-
-function handleServerMessage(msg) {
-  // ожидаем сообщения вида {type:'partial'|'final', text:'...', confidence:0.9}
-  if (!msg.type) return;
-  if (msg.type === 'partial') {
-    // показываем как временный текст
-    transcriptEl.textContent = (transcriptEl.dataset.confirmed || "") + " " + msg.text;
-  } else if (msg.type === 'final') {
-    // сохранить окончательный фрагмент
-    const confirmed = transcriptEl.dataset.confirmed || "";
-    const newConfirmed = (confirmed + " " + msg.text).trim();
-    transcriptEl.dataset.confirmed = newConfirmed;
-    transcriptEl.textContent = newConfirmed;
-  } else if (msg.type === 'info') {
-    // любые служебные сообщения
-    setStatus("WS: " + (msg.msg || 'info'));
-  } else if (msg.type === 'error') {
-    setStatus("WS error: " + (msg.msg||''));
-  } else {
-    console.log("Unknown message", msg);
-  }
-}
-
-
-async function startRecording() {
-  btnStart.disabled = true;
-  btnStop.disabled = false;
-  initWebSocket();
-  setStatus("Инициализация микрофона...");
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    globalStream = stream;
-    audioContext = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
-    const source = audioContext.createMediaStreamSource(stream);
-    const bufferSize = 4096;
-    processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
-    source.connect(processor);
-    processor.connect(audioContext.destination);
-
-    const inputSampleRate = audioContext.sampleRate;
-    console.log("Input sampleRate:", inputSampleRate);
-
-    processor.onaudioprocess = (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      const downsampled = downsampleBuffer(inputData, inputSampleRate, 16000);
-      const pcm16Buffer = floatTo16BitPCM(downsampled);
-      const b64 = arrayBufferToBase64(pcm16Buffer);
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const msg = JSON.stringify({ type: 'audio', encoding: 'pcm16', sample_rate: 16000, data: b64 });
-        ws.send(msg);
-      }
-    };
-
-    setStatus("Запись: отправка аудио в реальном времени");
-
-  } catch (err) {
-    console.error("getUserMedia error", err);
-    setStatus("Ошибка доступа к микрофону");
-    btnStart.disabled = false;
-    btnStop.disabled = true;
-  }
-}
-
-
-function stopRecording() {
-  btnStart.disabled = false;
-  btnStop.disabled = true;
-  setStatus("Остановка...");
-  if (processor) {
-    processor.disconnect();
-    processor.onaudioprocess = null;
-    processor = null;
-  }
-  if (audioContext) {
-    audioContext.close();
-    audioContext = null;
-  }
-  if (globalStream) {
-    for (const t of globalStream.getTracks()) t.stop();
-    globalStream = null;
-  }
- 
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({type: 'eof'}));
-    setStatus("Ожидание результата...");
-    ws.close()
-    setStatus("Запись: отправка аудио в реальном времени");
-  }
-}
-
-
-async function makeStructured() {
-  const rawText = (transcriptEl.dataset.confirmed || "").trim();
-  if (!rawText) {
-    alert("Текст пустой — сперва продиктуйте что-нибудь.");
-    return;
-  }
-  setStatus("Отправка в LLM...");
-  structuredEl.textContent = "...";
-  try {
-    const resp = await fetch(LLM_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: rawText })
-    });
-    if (!resp.ok) {
-      const txt = await resp.text();
-      setStatus("LLM error: " + resp.status);
-      structuredEl.textContent = "Ошибка: " + txt;
-      return;
-    }
-    const j = await resp.json();
-    structuredEl.textContent = JSON.stringify(j.structured || j, null, 2);
-    setStatus("Готово");
-  } catch (e) {
-    console.error(e);
-    setStatus("Ошибка LLM запросa");
-    structuredEl.textContent = "Ошибка: " + e.message;
-  }
-}
-
-
-async function copyStructured() {
-  const text = structuredEl.textContent;
-  if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus("Скопировано в буфер обмена");
-  } catch (e) {
-    console.error("Copy failed", e);
-    alert("Не удалось скопировать: " + e);
-  }
-}
-
-
-window.addEventListener("beforeunload", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    try { ws.send(JSON.stringify({type:'close'})); } catch(e) {}
-    ws.close();
-  }
-});
-  </script>
+  <script src="{{ url_for('static', path='/js/app.js') }}"></script>
 </body>
 </html>

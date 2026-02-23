@@ -1,10 +1,14 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from api import main_router
 from core.models.db_helper import db_helper
 import uvicorn
+
+BASE_DIR = Path(__file__).resolve().parent
 
 # Жизненный цикл приложения
 @asynccontextmanager
@@ -24,6 +28,11 @@ app = FastAPI(
 
 app.include_router(main_router)
 
+app.mount(
+    "/static",
+    StaticFiles(directory=BASE_DIR / "static"),
+    name="static"
+)
 
 app.add_middleware(
     CORSMiddleware,
