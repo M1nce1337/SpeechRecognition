@@ -8,13 +8,6 @@ class SystemPromptConfig(BaseModel):
 class LLMConfig(BaseModel):
     url: str
 
-class DataBaseConfig(BaseModel):
-    url: PostgresDsn
-    echo: bool = False
-    echo_pool: bool = False
-    pool_size: int = 50
-    max_overflow: int = 10
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -22,8 +15,7 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         env_prefix="APP_CONFIG__",
     )
-    
-    db: DataBaseConfig
+
     llm: LLMConfig
     prompt: SystemPromptConfig
 

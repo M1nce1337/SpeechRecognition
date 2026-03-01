@@ -10,6 +10,7 @@ let globalStream = null;
 let recordingTime = 0;
 let timerInterval = null;
 let animationFrame = null;
+let audioAnalyser = null;
 
 // Элементы DOM
 const btnStart = document.getElementById("btnStart");
@@ -28,11 +29,13 @@ const connectionBadge = document.getElementById("connectionBadge");
 const visualizationBars = document.getElementById("visualizationBars");
 
 // Инициализация визуализации
-for (let i = 0; i < 30; i++) {
+let bars = [];
+for (let i = 0; i < 50; i++) {
   const bar = document.createElement("div");
   bar.className = "bar";
-  bar.style.height = Math.random() * 30 + 10 + "px";
+  bar.style.height = "5px";
   visualizationBars.appendChild(bar);
+  bars.push(bar);
 }
 
 // Обработчики событий
@@ -124,7 +127,7 @@ function exportStructured() {
   setStatus("idle", "Файл экспортирован");
 }
 
-// WebSocket функции (те же, что и в вашем коде)
+// WebSocket функции
 function initWebSocket() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
 
@@ -136,6 +139,7 @@ function initWebSocket() {
     transcriptEl.textContent = "";
     setStatus("connected", "WebSocket: подключено");
     ws.send(JSON.stringify({type: 'hello', role: 'client'}));
+    console.log("✅ WebSocket connected");
   };
 
   ws.onmessage = (evt) => {
@@ -152,10 +156,12 @@ function initWebSocket() {
 
   ws.onclose = () => {
     setStatus("idle", "WebSocket: отключено");
+    console.log("🔌 WebSocket closed");
   };
 
-  ws.onerror = () => {
+  ws.onerror = (error) => {
     setStatus("idle", "WebSocket: ошибка соединения");
+    console.error("❌ WebSocket error:", error);
   };
 }
 
@@ -178,7 +184,38 @@ function handleServerMessage(msg) {
   }
 }
 
-// Аудио функции (ваши существующие)
+// Функция для обновления визуализации
+function updateVisualization() {
+  if (!audioAnalyser || !animationFrame) return;
+
+  const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+  audioAnalyser.getByteFrequencyData(dataArray);
+
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    sum += dataArray[i];
+  }
+  const avgVolume = sum / dataArray.length / 256;
+
+  bars.forEach((bar, index) => {
+    const position = Math.abs(index - bars.length/2) / (bars.length/2);
+    const heightMultiplier = 1 - position * 0.5;
+    const height = 5 + (avgVolume * 45 * heightMultiplier);
+    bar.style.height = height + 'px';
+
+    if (avgVolume > 0.3) {
+      bar.style.background = "var(--primary)";
+    } else if (avgVolume > 0.1) {
+      bar.style.background = "var(--primary-light)";
+    } else {
+      bar.style.background = "var(--gray-400)";
+    }
+  });
+
+  animationFrame = requestAnimationFrame(updateVisualization);
+}
+
+// Аудио функции
 function floatTo16BitPCM(float32Array) {
   const l = float32Array.length;
   const buffer = new ArrayBuffer(l * 2);
@@ -216,20 +253,6 @@ function downsampleBuffer(buffer, sampleRate, outSampleRate = 16000) {
   return result;
 }
 
-function updateVisualization(audioData) {
-  if (!animationFrame) {
-    const animate = () => {
-      const bars = document.querySelectorAll('.bar');
-      bars.forEach(bar => {
-        const height = 20 + Math.random() * 40;
-        bar.style.height = height + 'px';
-      });
-      animationFrame = requestAnimationFrame(animate);
-    };
-    animate();
-  }
-}
-
 async function startRecording() {
   btnStart.disabled = true;
   btnStop.disabled = false;
@@ -237,20 +260,40 @@ async function startRecording() {
   setStatus("recording", "Запись...");
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1
+      }
+    });
+
     globalStream = stream;
     audioContext = new (AudioContext || webkitAudioContext)();
+
+    // Создаем анализатор для визуализации
+    audioAnalyser = audioContext.createAnalyser();
+    audioAnalyser.fftSize = 256;
+
     const source = audioContext.createMediaStreamSource(stream);
     processor = audioContext.createScriptProcessor(4096, 1, 1);
 
-    source.connect(processor);
+    // Подключаем: источник -> анализатор -> процессор
+    source.connect(audioAnalyser);
+    audioAnalyser.connect(processor);
     processor.connect(audioContext.destination);
 
     const inputSampleRate = audioContext.sampleRate;
 
+    // Запускаем визуализацию
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+    }
+    animationFrame = requestAnimationFrame(updateVisualization);
+
     processor.onaudioprocess = (e) => {
       const inputData = e.inputBuffer.getChannelData(0);
-      updateVisualization(inputData);
 
       const downsampled = downsampleBuffer(inputData, inputSampleRate, 16000);
       const pcm16Buffer = floatTo16BitPCM(downsampled);
@@ -267,9 +310,10 @@ async function startRecording() {
     };
 
     startTimer();
+    console.log("✅ Recording started successfully");
 
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error accessing microphone:", err);
     setStatus("idle", "Ошибка доступа к микрофону");
     btnStart.disabled = false;
     btnStop.disabled = true;
@@ -284,6 +328,11 @@ function stopRecording() {
     processor.disconnect();
     processor.onaudioprocess = null;
     processor = null;
+  }
+
+  if (audioAnalyser) {
+    audioAnalyser.disconnect();
+    audioAnalyser = null;
   }
 
   if (audioContext) {
@@ -309,6 +358,13 @@ function stopRecording() {
     cancelAnimationFrame(animationFrame);
     animationFrame = null;
   }
+
+  bars.forEach(bar => {
+    bar.style.height = "5px";
+    bar.style.background = "var(--gray-400)";
+  });
+
+  console.log("⏹️ Recording stopped");
 }
 
 async function makeStructured() {
@@ -336,7 +392,7 @@ async function makeStructured() {
     structuredEl.textContent = JSON.stringify(j.structured || j, null, 2);
     setStatus("idle", "Готово");
   } catch (e) {
-    console.error(e);
+    console.error("❌ LLM error:", e);
     setStatus("idle", "Ошибка LLM");
     structuredEl.textContent = "Ошибка: " + e.message;
   }

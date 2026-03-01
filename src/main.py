@@ -5,24 +5,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from api import main_router
-from core.models.db_helper import db_helper
 import uvicorn
+import logging
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# Жизненный цикл приложения
+# Жизненный цикл приложения (упрощенный, без БД)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
+    logger.info("🚀 Starting VoiceDoc application...")
     yield
     # shutdown
-    await db_helper.dispose()
+    logger.info("👋 Shutting down VoiceDoc application...")
 
 
 templates = Jinja2Templates(directory="templates")
 
 
 app = FastAPI(
+    title="VoiceDoc",
+    description="Medical voice documentation system",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
@@ -51,5 +59,7 @@ async def root(request: Request):
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
+        host="127.0.0.1",
+        port=8000,
         reload=True
-    )                  
+    )
