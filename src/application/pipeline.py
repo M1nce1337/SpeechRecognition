@@ -20,7 +20,7 @@ router = APIRouter()
 asr_model = Model(MODEL_PATH)
 recognizer = KaldiRecognizer(asr_model, SAMPLE_RATE)
 
-text_for_processing = "" # здесь будем хранить текст для обработки с помощью LLM
+text = "" # здесь будем хранить текст для обработки с помощью LLM
 
 
 @router.websocket("/ws/audio")
@@ -29,9 +29,7 @@ async def websocket_endpoint(
     session: AsyncSession = Depends(db_helper.session_getter)
     ):
 
-    global text_for_processing
-
-    recognized_text = ""
+    global text
 
     await manager.connect(websocket)
 
@@ -47,11 +45,11 @@ async def websocket_endpoint(
 
             if ok:
                 result = json.loads(recognizer.Result())
-                recognized_text += result.get("text", "")
+                text += result.get("text", "")
                 
                 await websocket.send_json({
                     "type": "final",
-                    "text": recognized_text
+                    "text": text
                 })
 
             else:
@@ -66,7 +64,7 @@ async def websocket_endpoint(
             
             await ASRService.save_record(
                 session=session,
-                raw_text=recognized_text,
+                raw_text=text,
                 final_text=final.get("text", "")
             )
 
@@ -74,8 +72,6 @@ async def websocket_endpoint(
                 "type": "final",
                 "text": final.get("text", "")
             })
-
-            text_for_processing = recognized_text
 
             break
 
@@ -86,5 +82,5 @@ async def websocket_endpoint(
 @router.post("/llm/structure")
 async def llm_process():
     async with aiohttp.ClientSession() as session:
-        result = await llm_service.send_message(session, text_for_processing)
+        result = await llm_service.send_message(session, text)
         return result  

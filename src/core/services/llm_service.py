@@ -1,20 +1,22 @@
 from aiohttp import ClientSession
-from dotenv import load_dotenv
 from core.config import settings
-import os
+from application.dto import AnswerDTO
+import json
 
 class LLMService:
+    def __init__(self):
+        self._SYSTEM_PROMPT = settings.prompt.content
+        self._api_url = settings.llm.url
+        self._model = "qwen3-vl-30b"
+        self._temperature = 0.2
+        self._max_tokens = -1
 
-    # Параметры запроса к LLM
-    _SYSTEM_PROMPT = settings.prompt.content
-    _api_url = settings.llm.url
-    _model = "qwen3-vl-30b"
-    _temperature = 0.2
-    _max_tokens = -1
 
-    # Метод для отправки промпта и получения ответа
-    
-    async def send_message(self, session: ClientSession, message: str) -> dict:
+    async def send_message(self, session: ClientSession, message: str) -> AnswerDTO:
+        """
+        Метод для отправления промпта и получения ответа
+        """
+
         headers = {'Content-Type': 'application/json'}
         data = {
             "model": self._model,
@@ -30,10 +32,16 @@ class LLMService:
         async with session.post(
             self._api_url, 
             json=data, 
-            headers=headers) as result:
+            headers=headers) as response:
 
-            raw = await result.json()
+            raw = await response.json()
+            result = json.loads(raw['choices'][0]['message']['content'])
 
-            return raw['choices'][0]['message']['content']
+            return AnswerDTO(
+                complaints=result.get("complaints"),
+                anamnesis=result.get("anamnesis"),
+                status_praesens=result.get("status_praesens"),
+                recommendations=result.get("recommendations")
+            )
 
 llm_service = LLMService()        
