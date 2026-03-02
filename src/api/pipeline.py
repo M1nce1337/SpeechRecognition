@@ -2,10 +2,13 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from vosk import Model, KaldiRecognizer
 from websocket_connection.connection_manager import manager
 from core.services.llm_service import llm_service
+from core.services.normalization_service import LorNormalizer
 import aiohttp
 import base64
 import json
 import logging
+import re
+import json as json_lib
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -30,7 +33,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # СОЗДАЕМ НОВЫЙ РАСПОЗНАВАТЕЛЬ ДЛЯ КАЖДОГО ПОДКЛЮЧЕНИЯ
     recognizer = KaldiRecognizer(asr_model, SAMPLE_RATE)
     full_text = ""  # Будем хранить текущий полный текст
-    last_sent = ""  # Для предотвращения дубликатов (опционально)
+    last_sent = ""  # Для предотвращения дубликатов
 
     try:
         while True:
@@ -64,19 +67,35 @@ async def websocket_endpoint(websocket: WebSocket):
                             "text": preview
                         })
 
+
             elif message.get("type") == "eof":
+
                 logger.info("Получен сигнал EOF")
 
                 final = json.loads(recognizer.FinalResult())
-                full_text = final.get("text", "").strip()
+
+                final_text = final.get("text", "").strip()
+
+                if final_text:  # только если есть добавка
+
+                    full_text = (full_text + " " + final_text).strip() if full_text else final_text
 
                 if full_text:
-                    await websocket.send_json({
-                        "type": "final",
-                        "text": full_text
-                    })
 
-                logger.info(f"🏁 Итоговый текст: '{full_text}'")
+                    await websocket.send_json({"type": "final", "text": full_text})
+
+                    logger.info(f"🏁 Итоговый текст: '{full_text}'")
+
+                elif last_sent:  # fallback
+
+                    await websocket.send_json({"type": "final", "text": last_sent})
+
+                    logger.info(f"🏁 Итоговый текст (fallback): '{last_sent}'")
+
+                else:
+
+                    logger.warning("Итоговый текст пустой!")
+
                 break
 
     except WebSocketDisconnect:
@@ -90,17 +109,43 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @router.post("/llm/structure")
 async def llm_process(request: dict):
-    """Обработка текста через LLM"""
+    """Обработка текста через LLM + нормализация ЛОР-терминов"""
     text = request.get("text", "")
-    logger.info(f"Запрос к LLM с текстом: '{text[:100]}...'")
+    logger.info(f"📤 Запрос к LLM с текстом: '{text[:100]}...'")
 
     if not text:
         return {"error": "No text provided"}
 
     try:
         async with aiohttp.ClientSession() as session:
-            result = await llm_service.send_message(session, text)
-            return result
+            raw = await llm_service.send_message(session, text)
+
+        # === Очистка markdown и парсинг JSON ===
+        if isinstance(raw, str):
+            # убираем ```json
+            cleaned = re.sub(r'^```(?:json)?\s*', '', raw.strip(), flags=re.IGNORECASE)
+            cleaned = re.sub(r'\s*```$', '', cleaned).strip()
+
+            # пытаемся найти JSON-блок внутри
+            match = re.search(r'\{[\s\S]*\}', cleaned)
+            json_str = match.group(0) if match else cleaned
+        else:
+            json_str = raw
+
+        try:
+            data = json_lib.loads(json_str)
+        except:
+            logger.warning("Не удалось распарсить JSON")
+            data = {"complaints": str(raw)[:500]}
+
+        logger.info(f"📥 LLM raw → {data}")
+
+        # === Нормализация ===
+        data = LorNormalizer.normalize(data)
+
+        logger.info(f"✅ После нормализации: {data}")
+        return data
+
     except Exception as e:
-        logger.error(f"Ошибка LLM: {e}")
+        logger.error(f"❌ Ошибка LLM: {e}", exc_info=True)
         return {"error": str(e)}

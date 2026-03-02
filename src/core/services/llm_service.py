@@ -8,9 +8,9 @@ class LLMService:
     # Параметры запроса к LLM
     _SYSTEM_PROMPT = settings.prompt.content
     _api_url = settings.llm.url
-    _model = "qwen3-vl-30b"
+    _model = "medgemma-27b-text-it"
     _temperature = 0.2
-    _max_tokens = -1
+    _max_tokens = 3072
 
     # Метод для отправки промпта и получения ответа
     

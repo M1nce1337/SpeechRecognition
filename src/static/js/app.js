@@ -368,14 +368,19 @@ function stopRecording() {
 }
 
 async function makeStructured() {
-  const rawText = (transcriptEl.dataset.confirmed || "").trim();
+  console.log('=== makeStructured ===');
+  console.log('dataset.confirmed:', transcriptEl.dataset.confirmed);
+  console.log('textContent:', transcriptEl.textContent);
+
+  // Берём всё, что есть
+  const rawText = (transcriptEl.textContent || transcriptEl.dataset.confirmed || "").trim();
+
   if (!rawText) {
     alert("Сначала запишите речь");
     return;
   }
 
   setStatus("processing", "Отправка в LLM...");
-  structuredEl.innerHTML = '<div class="spinner" style="margin: 20px auto;"></div>';
 
   try {
     const resp = await fetch(LLM_URL, {
@@ -384,27 +389,17 @@ async function makeStructured() {
       body: JSON.stringify({ text: rawText })
     });
 
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status}`);
-    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-    const j = await resp.json();
-    structuredEl.textContent = JSON.stringify(j.structured || j, null, 2);
+    const data = await resp.json();
+    console.log("LLM ответил:", data);
+
+    structuredEl.textContent = JSON.stringify(data, null, 2);
     setStatus("idle", "Готово");
+
   } catch (e) {
     console.error("❌ LLM error:", e);
     setStatus("idle", "Ошибка LLM");
     structuredEl.textContent = "Ошибка: " + e.message;
   }
 }
-
-// Cleanup
-window.addEventListener("beforeunload", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.close();
-  }
-  if (globalStream) {
-    globalStream.getTracks().forEach(t => t.stop());
-  }
-  stopTimer();
-});
