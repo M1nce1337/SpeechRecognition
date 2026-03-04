@@ -5,9 +5,15 @@ from websocket_connection.connection_manager import manager
 from core.models.db_helper import db_helper
 from core.services.asr_service import ASRService
 from core.services.llm_service import llm_service
+from core.services.normalization_service import normalization_service
 import aiohttp
 import base64
 import json
+import logging
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 MODEL_PATH = "ml_models/vosk"
@@ -81,6 +87,10 @@ async def websocket_endpoint(
 
 @router.post("/llm/structure")
 async def llm_process():
+    normalized_text = normalization_service.normalize(text) # нормализуем распознанный текст
+
+    logger.info(f"После нормализации: {normalized_text}")
+
     async with aiohttp.ClientSession() as session:
-        result = await llm_service.send_message(session, text)
+        result = await llm_service.send_message(session, normalized_text)
         return result  
