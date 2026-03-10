@@ -23,70 +23,100 @@ SAMPLE_RATE = 16000
 router = APIRouter()
 
 # Инициализация модели для распознавания речи
+logger.info(f"Загрузка модели Vosk из {MODEL_PATH}...")
 asr_model = Model(MODEL_PATH)
-recognizer = KaldiRecognizer(asr_model, SAMPLE_RATE)
-
-text = "" # здесь будем хранить текст для обработки с помощью LLM
-
+logger.info("Модель Vosk успешно загружена")
 
 @router.websocket("/ws/audio")
-async def websocket_endpoint(
-    websocket: WebSocket,
-    session: AsyncSession = Depends(db_helper.session_getter)
-    ):
-
-    global text
-
+async def websocket_endpoint(websocket: WebSocket):
+    logger.info("Новое WebSocket подключение")
     await manager.connect(websocket)
 
+    # СОЗДАЕМ НОВЫЙ РАСПОЗНАВАТЕЛЬ ДЛЯ КАЖДОГО ПОДКЛЮЧЕНИЯ
+    recognizer = KaldiRecognizer(asr_model, SAMPLE_RATE)
+    full_text = ""  # Будем хранить текущий полный текст
+    last_sent = ""  # Для предотвращения дубликатов
+
     try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
 
-     while True:
-        data = await websocket.receive_text()
-        message = json.loads(data)
+            if message.get("type") == "audio":
+                pcm_data = base64.b64decode(message.get("data"))
 
-        if message.get("type") == "audio":
-            pcm_data = base64.b64decode(message.get("data"))
-            ok = recognizer.AcceptWaveform(pcm_data)
+                if recognizer.AcceptWaveform(pcm_data):
+                    # Vosk возвращает ВЕСЬ накопленный текст
+                    result = json.loads(recognizer.Result())
+                    full_text = result.get("text", "").strip()
 
-            if ok:
-                result = json.loads(recognizer.Result())
-                text += result.get("text", "")
-                
-                await websocket.send_json({
-                    "type": "final",
-                    "text": text
-                })
+                    # Отправляем только если текст изменился
+                    if full_text and full_text != last_sent:
+                        last_sent = full_text
+                        logger.info(f"📝 Текст: '{full_text}'")
+                        await websocket.send_json({
+                            "type": "final",
+                            "text": full_text
+                        })
+                else:
+                    # Частичный результат тоже содержит весь накопленный текст
+                    partial = json.loads(recognizer.PartialResult())
+                    preview = partial.get("partial", "").strip()
 
-            else:
-                partial = json.loads(recognizer.PartialResult())
-                await websocket.send_json({
-                    "type": "partial",
-                    "text": partial.get("partial", "")
-                })
+                    if preview and preview != full_text:
+                        await websocket.send_json({
+                            "type": "partial",
+                            "text": preview
+                        })
 
-        if message.get("type") == "eof":
-            final = json.loads(recognizer.FinalResult())
-            
-            await ASRService.save_record(
-                session=session,
-                raw_text=text,
-                final_text=final.get("text", "")
-            )
 
-            await websocket.send_json({
-                "type": "final",
-                "text": final.get("text", "")
-            })
+            elif message.get("type") == "eof":
 
-            break
+                logger.info("Получен сигнал EOF")
+
+                final = json.loads(recognizer.FinalResult())
+
+                final_text = final.get("text", "").strip()
+
+                if final_text:  # только если есть добавка
+
+                    full_text = (full_text + " " + final_text).strip() if full_text else final_text
+
+                if full_text:
+
+                    await websocket.send_json({"type": "final", "text": full_text})
+
+                    logger.info(f"🏁 Итоговый текст: '{full_text}'")
+
+                elif last_sent:  # fallback
+
+                    await websocket.send_json({"type": "final", "text": last_sent})
+
+                    logger.info(f"🏁 Итоговый текст (fallback): '{last_sent}'")
+
+                else:
+
+                    logger.warning("Итоговый текст пустой!")
+
+                break
 
     except WebSocketDisconnect:
+        logger.info("Клиент отключился")
         manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"Ошибка: {e}", exc_info=True)
+    finally:
+        logger.info("WebSocket соединение закрыто")
 
 
 @router.post("/llm/structure")
-async def llm_process():
+async def llm_process(request: dict):
+    text = request.get("text", "")
+    logger.info(f"Запрос к LLM с текстом: '{text[:100]}...'")
+
+    if not text:
+        return {"error": "No text provided"}
+    
     normalized_text = normalization_service.normalize(text) # нормализуем распознанный текст
 
     logger.info(f"После нормализации: {normalized_text}")

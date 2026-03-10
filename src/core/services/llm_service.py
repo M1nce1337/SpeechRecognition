@@ -39,9 +39,8 @@ class LLMService:
 
             return AnswerDTO(
                 complaints=result.get("complaints"),
-                anamnesis=result.get("anamnesis"),
-                status_praesens=result.get("status_praesens"),
-                recommendations=result.get("recommendations")
+                anamnesis_vitae=result.get("anamnesis_vitae"),
+                anamnesis_morbi=result.get("anamnesis_morbi")
             )
 
 llm_service = LLMService()        
