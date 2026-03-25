@@ -1,4 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from vosk import Model, KaldiRecognizer
 from websocket_connection.connection_manager import manager
@@ -6,6 +7,8 @@ from core.models.db_helper import db_helper
 from core.services.asr_service import ASRService
 from core.services.llm_service import llm_service
 from core.services.normalization_service import normalization_service
+from core.services.document_service import document_service
+from .dto import AnswerDTO
 import aiohttp
 import base64
 import json
@@ -117,10 +120,17 @@ async def llm_process(request: dict):
     if not text:
         return {"error": "No text provided"}
     
-    normalized_text = normalization_service.normalize(text) # нормализуем распознанный текст
+    normalized_text = normalization_service.normalize(text)
 
     logger.info(f"После нормализации: {normalized_text}")
 
     async with aiohttp.ClientSession() as session:
         result = await llm_service.send_message(session, normalized_text)
-        return result  
+        return result
+
+@router.post("/document/download")
+async def download_document(request: dict) -> StreamingResponse:
+    llm_response = request.get("result", {})
+    document = await document_service.create_document(llm_response)
+
+    return document     

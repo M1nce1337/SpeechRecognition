@@ -1,6 +1,6 @@
 from aiohttp import ClientSession
 from core.config import settings
-from application.dto import AnswerDTO
+from api.dto import AnswerDTO
 import json
 
 class LLMService:

@@ -4,7 +4,7 @@ from steosmorphy import MorphAnalyzer
 import re
 
 class NormalizationService:
-    _DICT_PATH = "core/dictionary/dictionary.docx"
+    _DICT_PATH = "core/documents/dictionary.docx"
 
     def __init__(self):
         self._similarity_threshold = 50
@@ -12,17 +12,6 @@ class NormalizationService:
         self._terms = [p.text.strip() for p in self._dict.paragraphs if p.text.strip()]
         self._morph = MorphAnalyzer()
 
-    def lemmatize(self, text: str) -> str:
-        """
-        Приводит слова к нормальной форме 
-        """
-        final_text = ""
-        lemmatized_words = [self._morph.analyze(word).first.lemma for word in text.split(" ")]
-        
-        for word in lemmatized_words:
-            final_text += word + " "
-
-        return final_text
     
     def normalize(self, text: str) -> str:
         """
@@ -31,8 +20,7 @@ class NormalizationService:
         исходного текста и терминов из словаря
         """
         final_text = ""
-        lemmatized_text = self.lemmatize(text)
-        phrases = re.split(r'[,.]|\s+и\s+|\s+а\s+|\s+но\s+', lemmatized_text)
+        phrases = re.split(r'[,.]|\s+и\s+|\s+а\s+|\s+но\s+', text)
         phrases = [phrase.strip().lower() for phrase in phrases if phrase.strip().lower()]
 
         for phrase in phrases:

@@ -313,10 +313,10 @@ function stopRecording() {
 
 async function makeStructured() {
   const rawText = (transcriptEl.dataset.confirmed || "").trim();
-  //if (!rawText) {
-    //alert("Сначала запишите речь");
-    //return;
-  //}
+  if (!rawText) {
+    alert("Сначала запишите речь");
+    return;
+  }
 
   setStatus("processing", "Отправка в LLM...");
   structuredEl.innerHTML = '<div class="spinner" style="margin: 20px auto;"></div>';
