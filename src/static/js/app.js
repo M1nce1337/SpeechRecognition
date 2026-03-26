@@ -26,6 +26,7 @@ const transcriptEl = document.getElementById("transcript");
 const structuredEl = document.getElementById("structured");
 const connectionBadge = document.getElementById("connectionBadge");
 const visualizationBars = document.getElementById("visualizationBars");
+const btnDownload = document.getElementById("downloadBtn");
 
 // Инициализация визуализации
 for (let i = 0; i < 30; i++) {
@@ -43,8 +44,42 @@ btnMakeStructured.onclick = makeStructured;
 btnCopy.onclick = () => copyText(structuredEl.textContent);
 btnCopyTranscript.onclick = () => copyText(transcriptEl.textContent || transcriptEl.dataset.confirmed || "");
 btnExport.onclick = exportStructured;
+btnDownload.onclick = donwloadDocument;
 
 // Вспомогательные функции
+async function donwloadDocument() {
+  try {
+        const response = await fetch("http://127.0.0.1:8000/document/download", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                result: structuredEl.textContent
+            })
+        })
+        .then(response => response.blob())
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "medcard.docx";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        });
+
+        if (!response.ok) {
+            throw new Error("Ошибка при скачивании файла");
+        }
+
+    } catch (error) {
+        console.error(error);
+        alert("Не удалось скачать документ");
+    }
+}
+
 function setStatus(state, message) {
   statusIndicator.className = "status-indicator";
   if (state === "recording") {
@@ -123,6 +158,8 @@ function exportStructured() {
   URL.revokeObjectURL(url);
   setStatus("idle", "Файл экспортирован");
 }
+
+
 
 // WebSocket функции (те же, что и в вашем коде)
 function initWebSocket() {
