@@ -14,7 +14,7 @@ import json as json_lib
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODEL_PATH = "ml_models/vosk_new"
+MODEL_PATH = "ml_models/vosk"
 SAMPLE_RATE = 16000
 
 router = APIRouter()

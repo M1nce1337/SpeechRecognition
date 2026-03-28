@@ -401,3 +401,55 @@ body {
   flex-wrap: wrap;
 }
 
+/* Стили для выпадающего меню экспорта */
+#exportMenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    min-width: 180px;
+    overflow: hidden;
+}
+
+#exportMenu button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 16px;
+    border: none;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--gray-700);
+    transition: all 0.2s ease;
+}
+
+#exportMenu button:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+#exportMenu button:last-child {
+    border-radius: 0 0 8px 8px;
+    border-top: 1px solid var(--gray-200);
+}
+
+#exportMenu button:hover {
+    background: var(--gray-100);
+    color: var(--primary);
+}
+
+/* Убедимся, что карточки не перекрывают меню */
+.medical-card {
+    position: relative;
+    z-index: 1;
+}
+
+.structured-view {
+    position: relative;
+    z-index: 1;
+}
