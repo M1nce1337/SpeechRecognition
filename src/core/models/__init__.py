@@ -1,9 +1,9 @@
 __all__ = (
     "db_helper",
     "Base",
-    "ASRResult",
+    "LLMResponse",
 )
 
 from .db_helper import db_helper
 from .base import Base
-from .asr_result import ASRResult
+from .llm_response import LLMResponse

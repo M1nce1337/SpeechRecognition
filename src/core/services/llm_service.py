@@ -1,6 +1,8 @@
 from aiohttp import ClientSession
 from core.config import settings
 from api.dto import AnswerDTO
+from sqlalchemy.ext.asyncio import AsyncSession
+from core.models.llm_response import LLMResponse
 import json
 
 class LLMService:
@@ -42,5 +44,25 @@ class LLMService:
                 anamnesis_vitae=result.get("anamnesis_vitae"),
                 anamnesis_morbi=result.get("anamnesis_morbi")
             )
+        
+    async def save_response(
+            self,
+            session: AsyncSession,
+            complaints: str,
+            anamnesis_vitae: str,
+            anamnesis_morbi: str
+    ) -> LLMResponse:
+        record = LLMResponse(
+            complaints=complaints,
+            anamnesis_vitae=anamnesis_vitae,
+            anamnesis_morbi=anamnesis_morbi
+        )
+
+        session.add(record)
+        await session.commit()
+        await session.refresh(record)
+
+        return record
+
 
 llm_service = LLMService()        

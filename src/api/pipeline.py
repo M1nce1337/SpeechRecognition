@@ -1,14 +1,12 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from vosk import Model, KaldiRecognizer
 from websocket_connection.connection_manager import manager
 from core.models.db_helper import db_helper
-from core.services.asr_service import ASRService
 from core.services.llm_service import llm_service
 from core.services.normalization_service import normalization_service
 from core.services.document_service import document_service
-from .dto import AnswerDTO
 import aiohttp
 import base64
 import json
@@ -113,7 +111,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 @router.post("/llm/structure")
-async def llm_process(request: dict):
+async def llm_process(request: dict, db_session: AsyncSession = Depends(db_helper.session_getter)):
     text = request.get("text", "")
     logger.info(f"Запрос к LLM с текстом: '{text[:100]}...'")
 
@@ -126,6 +124,14 @@ async def llm_process(request: dict):
 
     async with aiohttp.ClientSession() as session:
         result = await llm_service.send_message(session, normalized_text)
+
+        await llm_service.save_response(
+            session=db_session,
+            complaints=result.get("complaints", ""),
+            anamnesis_vitae=result.get("anamnesis_vitae", ""),
+            anamnesis_morbi=result.get("anamnesis_morbi", "")
+        )
+
         return result
 
 @router.post("/document/download")
