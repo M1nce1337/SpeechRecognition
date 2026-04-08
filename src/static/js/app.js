@@ -11,6 +11,9 @@ let recordingTime = 0;
 let timerInterval = null;
 let animationFrame = null;
 
+let structuredData = null;
+
+
 // Элементы DOM
 const btnStart = document.getElementById("btnStart");
 const btnStop = document.getElementById("btnStop");
@@ -55,7 +58,7 @@ async function donwloadDocument() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                result: structuredEl.textContent
+                result: structuredData
             })
         })
         .then(response => response.blob())
@@ -370,6 +373,8 @@ async function makeStructured() {
     }
 
     const j = await resp.json();
+    structuredData = j;
+
     structuredEl.textContent = JSON.stringify(j.structured || j, null, 2);
     setStatus("idle", "Готово");
   } catch (e) {

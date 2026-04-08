@@ -7,6 +7,7 @@ from core.models.db_helper import db_helper
 from core.services.llm_service import llm_service
 from core.services.normalization_service import normalization_service
 from core.services.document_service import document_service
+from dataclasses import asdict
 import aiohttp
 import base64
 import json
@@ -123,7 +124,8 @@ async def llm_process(request: dict, db_session: AsyncSession = Depends(db_helpe
     logger.info(f"После нормализации: {normalized_text}")
 
     async with aiohttp.ClientSession() as session:
-        result = await llm_service.send_message(session, normalized_text)
+        llm_response = await llm_service.send_message(session, normalized_text)
+        result = asdict(llm_response)
 
         await llm_service.save_response(
             session=db_session,
@@ -137,6 +139,8 @@ async def llm_process(request: dict, db_session: AsyncSession = Depends(db_helpe
 @router.post("/document/download")
 async def download_document(request: dict) -> StreamingResponse:
     llm_response = request.get("result", {})
+    logger.info(type(llm_response))
+    logger.info(llm_response)
     document = await document_service.create_document(llm_response)
 
     return document     
