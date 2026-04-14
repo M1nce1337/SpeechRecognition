@@ -79,7 +79,6 @@ async function donwloadDocument() {
 
     } catch (error) {
         console.error(error);
-        alert("Не удалось скачать документ");
     }
 }
 
@@ -374,7 +373,8 @@ async function makeStructured() {
 
     const j = await resp.json();
     structuredData = j;
-
+    console.log(typeof structuredData);
+    console.log(structuredData);
     structuredEl.textContent = JSON.stringify(j.structured || j, null, 2);
     setStatus("idle", "Готово");
   } catch (e) {

@@ -9,7 +9,7 @@ class LLMService:
     def __init__(self):
         self._SYSTEM_PROMPT = settings.prompt.content
         self._api_url = settings.llm.url
-        self._model = "qwen3-vl-30b"
+        self._model = "qwen/qwen3-14b"
         self._temperature = 0.2
         self._max_tokens = -1
 
