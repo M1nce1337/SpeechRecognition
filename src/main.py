@@ -10,7 +10,6 @@ import uvicorn
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# Жизненный цикл приложения
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup

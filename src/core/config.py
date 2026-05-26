@@ -1,6 +1,5 @@
 from pydantic import BaseModel, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import ClassVar
 
 class SystemPromptConfig(BaseModel):
     content: str

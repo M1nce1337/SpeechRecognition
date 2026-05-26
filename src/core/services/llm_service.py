@@ -9,9 +9,9 @@ class LLMService:
     def __init__(self):
         self._SYSTEM_PROMPT = settings.prompt.content
         self._api_url = settings.llm.url
-        self._model = "qwen/qwen3-14b"
+        self._model = "qwen3:14b"
         self._temperature = 0.2
-        self._max_tokens = -1
+        self._num_predict = 300
 
 
     async def send_message(self, session: ClientSession, message: str) -> AnswerDTO:
@@ -26,9 +26,10 @@ class LLMService:
                 {"role": "system", "content": self._SYSTEM_PROMPT},
                 {"role": "user", "content": message}                               
             ],
+            "think": False,            
+            "stream": False,
             "temperature": self._temperature,
-            "max_tokens": self._max_tokens,
-            "stream": False
+            "num_predict": self._num_predict          
         }
 
         async with session.post(
@@ -37,7 +38,7 @@ class LLMService:
             headers=headers) as response:
 
             raw = await response.json()
-            result = json.loads(raw['choices'][0]['message']['content'])
+            result = json.loads(raw.get("message", {}).get("content", {}))
 
             return AnswerDTO(
                 complaints=result.get("complaints"),

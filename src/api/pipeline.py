@@ -139,8 +139,6 @@ async def llm_process(request: dict, db_session: AsyncSession = Depends(db_helpe
 @router.post("/document/download")
 async def download_document(request: dict) -> StreamingResponse:
     llm_response = request.get("result", {})
-    logger.info(type(llm_response))
-    logger.info(llm_response)
     document = await document_service.create_document(llm_response)
 
     return document     

@@ -1,6 +1,5 @@
 from docx import Document
 from rapidfuzz import fuzz
-from steosmorphy import MorphAnalyzer
 import re
 
 class NormalizationService:
@@ -10,7 +9,6 @@ class NormalizationService:
         self._similarity_threshold = 50
         self._dict = Document(self._DICT_PATH) # загружаем файл со словарём терминов
         self._terms = [p.text.strip() for p in self._dict.paragraphs if p.text.strip()]
-        self._morph = MorphAnalyzer()
 
     
     def normalize(self, text: str) -> str:
