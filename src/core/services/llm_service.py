@@ -1,6 +1,6 @@
 from aiohttp import ClientSession
 from core.config import settings
-from api.dto import AnswerDTO
+from dto.answer_dto import AnswerDTO
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.models.llm_response import LLMResponse
 import json

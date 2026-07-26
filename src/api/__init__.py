@@ -1,4 +1,4 @@
-from api.pipeline import router as asr_router
+from api.endpoints import router as asr_router
 from fastapi import APIRouter
 
 

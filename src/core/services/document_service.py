@@ -1,6 +1,6 @@
 from fastapi.responses import StreamingResponse
 from docxtpl import DocxTemplate
-from api.dto import AnswerDTO
+from dto.answer_dto import AnswerDTO
 from io import BytesIO
 
 class DocumentService:
