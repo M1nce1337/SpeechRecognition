@@ -9,6 +9,7 @@ from core.services.normalization_service import normalization_service
 from core.services.document_service import document_service
 from dataclasses import asdict
 import aiohttp
+import asyncio
 import base64
 import json
 import logging
@@ -139,6 +140,6 @@ async def llm_process(request: dict, db_session: AsyncSession = Depends(db_helpe
 @router.post("/document/download")
 async def download_document(request: dict) -> StreamingResponse:
     llm_response = request.get("result", {})
-    document = await document_service.create_document(llm_response)
+    document = await asyncio.to_thread(document_service.create_document, llm_response)
 
     return document     

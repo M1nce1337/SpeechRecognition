@@ -4,13 +4,11 @@ from api.dto import AnswerDTO
 from io import BytesIO
 
 class DocumentService:
-    def __init__(self):
-        self._doc_template = DocxTemplate("core/documents/medcard_template.docx")
-
-    async def create_document(self, context: AnswerDTO) -> StreamingResponse:
+    def create_document(self, context: AnswerDTO) -> StreamingResponse:
         """
         Создание DOCX документа на основе ответа от LLM
         """
+        self._doc_template = DocxTemplate("core/documents/medcard_template.docx")
         self._doc_template.render(context)
 
         result = BytesIO()
